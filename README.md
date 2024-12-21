@@ -23,51 +23,75 @@ Welcome to the Real-Time Quiz coding challenge! Your task is to create a technic
 ### Part 1: System Design
 
 1. **System Design Document**:
-   - **Architecture Diagram**: Create an architecture diagram illustrating how different components of the system interact. This should include all components required for the feature, including the server, client applications, database, and any external services.
-   - **Component Description**: Describe each component's role in the system.
-   - **Data Flow**: Explain how data flows through the system from when a user joins a quiz to when the leaderboard is updated.
-   - **Technologies and Tools**: List and justify the technologies and tools chosen for each component.
+   - **Architecture Diagram**: 
+   ![alt text](architecture.png "Architecture")
+
+   - **Component Description**: 
+      - #### Frontend web app: display UI to user.      
+      - #### Backend deployed in k8s Cluster: orchestrate service instances by k8s.
+      - #### API Gateway & Ingress deployed in K8s
+      - #### Logging, monitoring and visualize by ELK stack
+      - #### Micro-services as containers support scalable and separate of concern, using database per service pattern.
+         - Room service: for room creation, room joining
+         - Question service: for storing and fetching questions only. Admin can also use this service later for CRUD questions.
+         - Answer service: simple and lightweight service, receive answer submit from user and publish to message queue. Can handle a lot of requests per second because of that. Easy to scale horizontally.
+         - Leaderboard service: store questions data of each room. Calculate correctness of user's answers. Store leaderboard data. Publish leaderboard to realtime service whenever there's any update from user's answers.
+         - Realtime service: websocket server, support push notification of changing leaderboard from backend to frontend in realtime. Horizontal scalable.
+      - #### Message queue for decoupling between services
+      - #### Caching for better performance and reduce workload of database
+      - #### RDBMS to support ACID, transaction, guaranty the answer of user will be saved correctly. 
+
+
+   - **Data Flow**: 
+
+      - Create room flow
+   ![alt text](create-room.png "Create room flow")
+
+      - Join room flow
+   ![alt text](join-room.png "Join room flow")
+
+      - Submit answer flow
+   ![alt text](submit-answer.png "Submit answer flow")
+
+   - **Technologies and Tools**: 
+      - Frontend: React for fast rendering, smooth UI experience. Deployed in CDN to reduce loading time (For example S3 -> Cloudfront)
+      - Backend: Using K8s to decouple with Cloud Provider services and automatic scaling, also support monitoring & observation
+      - Micro-service: use Java Quarkus for fast startup time, excelent performance, support concurency with reactive principal
+      - Logging: ELK is good choice with the maturity and easy to use.
+      - Message queue: Kafka for supporting high-throughput, data consistent
+      - Caching: Redis for caching fast, enhance throughput, reduce DB workload
+      - Database: PostgreSQL for supporting concurency, ACID, transaction
 
 ### Part 2: Implementation
 
-1. **Pick a Component**:
-   - Implement one of the core components below using the technologies that you are comfortable with. The rest of the system can be mocked using mock services or data.
+1. **Architecture and limitation**:
+   - Architecture implemented in demo is a bit different because of time constrain.
+   - Frontend: simple HTML/JS file just to retrieve data and perform action. Also support Websocket connection.
+   - Backend: using docker compose to create containers for fast development.
+   - Not yet implemented API Gateway in Nginx. Connection from Frontend to Backend is directly to each service endpoint.
+   - Caching in Redis is not yet implemented fully.
+   - Database design is simple, not yet support time submit calculation.
 
-2. **Requirements for the Implemented Component**:
+
+2. **Implemented Components**:
    - **Real-time Quiz Participation**: Users should be able to join a quiz session using a unique quiz ID.
    - **Real-time Score Updates**: Users' scores should be updated in real-time as they submit answers.
    - **Real-time Leaderboard**: A leaderboard should display the current standings of all participants in real-time.
 
 3. **Build For the Future**:
-   - **Scalability**: Design and implement your component with scalability in mind. Consider how the system would handle a large number of users or quiz sessions. Discuss any trade-offs you made in your design and implementation.
-   - **Performance**: Your component should perform well even under heavy load. Consider how you can optimize your code and your use of resources to ensure high performance.
-   - **Reliability**: Your component should be reliable and handle errors gracefully. Consider how you can make your component resilient to failures.
-   - **Maintainability**: Your code should be clean, well-organized, and easy to maintain. Consider how you can make it easy for other developers to understand and modify your code.
-   - **Monitoring and Observability**: Discuss how you would monitor the performance of your component and diagnose issues. Consider how you can make your component observable.
+   - **Scalability**: 
+      - With micro-service architecture, it's easy to scale each service independently. 
+      - Compare with Socket.IO: Socket.IO will be easier to develop a bit, but websocket in Java support concurency better.
+      - In leaderboard service, we must consume message and persist DB in a transaction, so cannot use reactive API in this service.
+      
+   - **Performance**: 
+      - With microservice + Kafka we can handle high throughput. But we can also optimize it more with caching + better DB design or apply some method like CQRS
 
-## Submission Guidelines
+   - **Reliability**: 
+      - With k8s cluster, containers can be restarted if there's any error.
 
-Candidates are required to submit the following as part of the coding challenge:
+   - **Maintainability**: 
+      - The source code demo is written in clean way, but lack of unit test because not enough of time
 
-1. **System Design Documents**:
-   - **Architecture Diagram**: Illustrate the interaction of system components (server, client applications, database, etc.).
-   - **Component Descriptions**: Explain the role of each component.
-   - **Data Flow**: Describe how data flows from user participation to leaderboard updates.
-   - **Technology Justification**: List the chosen technologies and justify why they were selected.
-
-2. **Working Code**:
-   - Choose one of the core components mentioned in the requirements and implement it using your preferred technologies. The rest of the system can be mocked using appropriate mock services or data.
-   - Ensure the code meets criteria such as scalability, performance, reliability, maintainability, and observability.
-
-3. **Video Submission**:
-   - Record a short video (5-10 minutes) where you address the following:
-     - **Introduction**: Introduce yourself and state your name.
-     - **Assignment Overview**: Describe the technical assignment that ELSA gave in your own words. Feel free to mention any assumptions or clarifications you made.
-     - **Solution Overview**: Provide a crisp overview of your solution, highlighting key design and implementation elements.
-     - **Demo**: Run the code on your local machine and walk us through the output or any tests you’ve written to verify the functionality.
-     - **Conclusion**: Conclude with any remarks, such as challenges faced, learnings, or further improvements you would make.
-
-   **Video Requirements**:
-   - The video must be between **5-10 minutes**. Any submission beyond 10 minutes will be rejected upfront.
-   - Use any recording device (smartphone, webcam, etc.), ensuring good audio and video quality.
-   - Ensure clear and concise communication.
+   - **Monitoring and Observability**: 
+      - Quarkus support some method for monitoring and observability like healthcheck or observability with OpenTelemetry
